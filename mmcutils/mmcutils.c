@@ -588,6 +588,8 @@ ERROR3:
 
 }
 
+// add check for board define, add check for partition flag
+// add copy to /tmp/firmware/partitionname.img (mmc_raw_dump_internal(filename,"tmp/firmware/".partition.".img"))
 int cmd_mmc_restore_raw_partition(const char *partition, const char *filename)
 {
     if (partition[0] != '/') {

@@ -17,6 +17,11 @@
 #ifndef _RECOVERY_FIRMWARE_H
 #define _RECOVERY_FIRMWARE_H
 
+#ifdef BOARD_RECOVERY_USES_HTC_FIRMWARE_ZIP
+int make_htc_firmware_zip();
+int htc_make_android_info();
+#endif
+
 /* Save a radio or bootloader update image for later installation.
  * The type should be one of "hboot" or "radio".
  * Takes ownership of type and data.  Returns nonzero on error.

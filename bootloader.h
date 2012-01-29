@@ -41,12 +41,25 @@ struct bootloader_message {
     char recovery[1024];
 };
 
+#ifdef BOARD_USES_NEW_HTC_MISC
+struct htc_version_info {
+	char *cid;
+	char *mid;
+	char *mainver;
+};
+
+// These return zero on success
+int htc_get_cmdline_info();
+int htc_get_mainver();
+#endif
+
 /* Read and write the bootloader command from the "misc" partition.
  * These return zero on success.
  */
 int get_bootloader_message(struct bootloader_message *out);
 int set_bootloader_message(const struct bootloader_message *in);
 
+#ifndef BOARD_RECOVERY_USES_HTC_FIRMWARE_ZIP
 /* Write an update to the cache partition for update-radio or update-hboot.
  * Note, this destroys any filesystem on the cache partition!
  * The expected bitmap format is 240x320, 16bpp (2Bpp), RGB 5:6:5.
@@ -55,5 +68,6 @@ int write_update_for_bootloader(
         const char *update, int update_len,
         int bitmap_width, int bitmap_height, int bitmap_bpp,
         const char *busy_bitmap, const char *error_bitmap);
+#endif
 
 #endif

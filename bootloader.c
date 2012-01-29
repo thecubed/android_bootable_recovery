@@ -168,6 +168,9 @@ static int get_bootloader_message_block(struct bootloader_message *out,
         return -1;
     }
     struct bootloader_message temp;
+#ifdef BOARD_USES_NEW_HTC_MISC
+    //seek to 2048 bytes (0x800)
+#endif
     int count = fread(&temp, sizeof(temp), 1, f);
     if (count != 1) {
         LOGE("Failed reading %s\n(%s)\n", v->device, strerror(errno));
@@ -178,6 +181,17 @@ static int get_bootloader_message_block(struct bootloader_message *out,
         return -1;
     }
     memcpy(out, &temp, sizeof(temp));
+
+#ifdef BOARD_USES_NEW_HTC_MISC
+    // piggyback on existing code... :)
+    if ( !(htc_get_cmdline_info() || htc_get_mainver()) ) {
+        return 0;
+    } else {
+        LOGE("Failed getting HTC info\n");
+        return -1;
+    }
+#endif
+
     return 0;
 }
 
@@ -189,6 +203,9 @@ static int set_bootloader_message_block(const struct bootloader_message *in,
         LOGE("Can't open %s\n(%s)\n", v->device, strerror(errno));
         return -1;
     }
+#ifdef BOARD_USES_NEW_HTC_MISC
+    //seek to 2048 bytes (0x800)
+#endif
     int count = fwrite(in, sizeof(*in), 1, f);
     if (count != 1) {
         LOGE("Failed writing %s\n(%s)\n", v->device, strerror(errno));
@@ -200,6 +217,84 @@ static int set_bootloader_message_block(const struct bootloader_message *in,
     }
     return 0;
 }
+
+#ifdef BOARD_USES_NEW_HTC_MISC
+
+// BEGIN IOMONSTER MAJOR MODS!
+
+struct htc_version_info htc_info;
+
+int htc_get_cmdline_info() {
+	char *token;
+	char separator[] = " ";
+	char separator2[] = "=";
+	char *saveptr;
+	char *saveptr2;
+	char *key;
+	char *value;
+	
+	memset(&htc_info, 0, sizeof(htc_info));
+
+	// TODO: get cmdline from /proc here!
+	token = strtok_r(cmdline, separator, &saveptr);
+	while( token != NULL ) {
+		key = strtok_r(token, separator2, &saveptr2);
+		value = strtok_r(NULL, separator2, &saveptr2);
+
+		if (!strcmp(key, "androidboot.cid") ) {
+			htc_info.cid = value;
+		} else if (!strcmp(key, "androidboot.mid") ) {
+			htc_info.mid = value;
+		}
+		
+		token = strtok_r(NULL, separator, &saveptr);
+	}
+	
+	// Empty the values just in case
+	token = NULL;
+	key = NULL;
+	value = NULL;
+	saveptr = NULL;
+	saveptr2 = NULL;
+
+	//printf("CID: %s, MID: %s\n", htc_info.cid, htc_info.mid);
+	if (htc_info.cid == NULL || htc_info.mid == NULL) {
+		printf("Error: CID or MID is null...");
+		return -1;
+	} else {
+		return 0;
+	}
+
+}
+
+int htc_get_mainver() {
+	// Read MISC to get the mainver of the running ROM
+	char maintmp[16];
+    // TODO: change this to volume for MISC!
+	FILE* misc = fopen("misc.img", "rb");
+	if (misc == NULL) {
+		// change to LOGE 
+		printf("Error opening MISC partition...");
+		return -1;
+	}
+
+	fseek(misc, 160, SEEK_SET);
+	fgets(maintmp, 16, misc);
+	if (maintmp == NULL) {
+		printf("Error reading MAINVER from MISC...");
+		return -1;
+	}
+	fclose(misc);
+	htc_info.mainver = malloc(sizeof(maintmp));
+	strncpy(htc_info.mainver, maintmp, sizeof(maintmp));
+	return 0;
+}
+
+//END IOMONSTER MAJOR MODS
+#endif
+
+
+#ifndef BOARD_RECOVERY_USES_HTC_FIRMWARE_ZIP
 
 /* Update Image
  *
@@ -350,3 +445,4 @@ int write_update_for_bootloader(
  
     return 0;
 }
+#endif
