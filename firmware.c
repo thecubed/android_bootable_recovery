@@ -29,7 +29,7 @@ static const char *update_data = NULL;
 static int update_length = 0;
 #else
 static int update_pending = 0;
-static htc_version_info htc_info;
+struct htc_version_info htc_info;
 #endif
 
 #ifdef BOARD_RECOVERY_USES_HTC_FIRMWARE_ZIP
@@ -96,7 +96,7 @@ int remember_firmware_update(const char *type, const char *data, int length) {
 
 	if (update_pending == 1) {
 		LOGE("Multiple firmware images in queue. Denied!\n");
-		return -1
+		return -1;
 	}
 
 	if (strcmp(type, "zip") == 0) {

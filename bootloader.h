@@ -48,7 +48,7 @@ struct htc_version_info {
 	char *mainver;
 };
 
-int htc_get_version_info(const Volume* v);
+//int htc_get_version_info(const Volume* v);
 int htc_get_version_struct(struct htc_version_info *out);
 #endif
 

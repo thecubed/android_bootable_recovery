@@ -18,8 +18,9 @@
 #define _RECOVERY_FIRMWARE_H
 
 #ifdef BOARD_RECOVERY_USES_HTC_FIRMWARE_ZIP
-int make_htc_firmware_zip();
-int htc_make_android_info();
+int get_htc_info()
+int htc_make_firmware_zip();
+int htc_write_android_info();
 int set_firmware_update_pending(int pending);
 #endif
 

@@ -30,6 +30,9 @@ static int get_bootloader_message_mtd(struct bootloader_message *out, const Volu
 static int set_bootloader_message_mtd(const struct bootloader_message *in, const Volume* v);
 static int get_bootloader_message_block(struct bootloader_message *out, const Volume* v);
 static int set_bootloader_message_block(const struct bootloader_message *in, const Volume* v);
+#ifdef BOARD_USES_NEW_HTC_MISC
+static int htc_get_version_info(const Volume* v);
+#endif
 
 int get_bootloader_message(struct bootloader_message *out) {
     Volume* v = volume_for_path("/misc");
@@ -226,7 +229,7 @@ static int set_bootloader_message_block(const struct bootloader_message *in,
 
 struct htc_version_info htc_info_temp;
 
-int htc_get_version_info(const Volume* v) {
+static int htc_get_version_info(const Volume* v) {
     char cmdline[2048];
 	char *token;
 	char separator[] = " ";
