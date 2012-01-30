@@ -184,7 +184,8 @@ static int get_bootloader_message_block(struct bootloader_message *out,
 
 #ifdef BOARD_USES_NEW_HTC_MISC
     // piggyback on existing code... :)
-    if ( !(htc_get_cmdline_info() || htc_get_mainver()) ) {
+    if ( !htc_get_version_info(v) ) {
+        LOGI("Got HTC Version Info...\n");
         return 0;
     } else {
         LOGE("Failed getting HTC info\n");
@@ -222,9 +223,10 @@ static int set_bootloader_message_block(const struct bootloader_message *in,
 
 // BEGIN IOMONSTER MAJOR MODS!
 
-struct htc_version_info htc_info;
+struct htc_version_info htc_info_temp;
 
-int htc_get_cmdline_info() {
+int htc_get_version_info(const Volume* v) {
+    char cmdline[2048];
 	char *token;
 	char separator[] = " ";
 	char separator2[] = "=";
@@ -233,18 +235,28 @@ int htc_get_cmdline_info() {
 	char *key;
 	char *value;
 	
-	memset(&htc_info, 0, sizeof(htc_info));
+    LOGI("Getting HTC Version Info...\n");
+
+	memset(&htc_info_temp, 0, sizeof(htc_info_temp));
 
 	// TODO: get cmdline from /proc here!
+
+    FILE* fcmdline = fopen("/proc/cmdline", "r");
+	if (fcmdline == NULL) {
+		LOGE("Error reading /proc/cmdline...\n");
+		return -1;
+	}
+    fgets(cmdline, sizeof(cmdline), fcmdline);
+    
 	token = strtok_r(cmdline, separator, &saveptr);
 	while( token != NULL ) {
 		key = strtok_r(token, separator2, &saveptr2);
 		value = strtok_r(NULL, separator2, &saveptr2);
 
 		if (!strcmp(key, "androidboot.cid") ) {
-			htc_info.cid = value;
+			htc_info_temp.cid = value;
 		} else if (!strcmp(key, "androidboot.mid") ) {
-			htc_info.mid = value;
+			htc_info_temp.mid = value;
 		}
 		
 		token = strtok_r(NULL, separator, &saveptr);
@@ -257,37 +269,40 @@ int htc_get_cmdline_info() {
 	saveptr = NULL;
 	saveptr2 = NULL;
 
-	//printf("CID: %s, MID: %s\n", htc_info.cid, htc_info.mid);
-	if (htc_info.cid == NULL || htc_info.mid == NULL) {
-		printf("Error: CID or MID is null...");
+	if (htc_info_temp.cid == NULL || htc_info_temp.mid == NULL) {
+        LOGE("Error: CID or MID is null...\n");
 		return -1;
-	} else {
-		return 0;
-	}
+	} 
 
-}
-
-int htc_get_mainver() {
-	// Read MISC to get the mainver of the running ROM
+    
+    // Read MISC to get the mainver of the running ROM
 	char maintmp[16];
-    // TODO: change this to volume for MISC!
-	FILE* misc = fopen("misc.img", "rb");
+    wait_for_device(v->device);
+	FILE* misc = fopen(v->device, "rb");
 	if (misc == NULL) {
-		// change to LOGE 
-		printf("Error opening MISC partition...");
+		LOGE("Error opening MISC partition...\n");
 		return -1;
 	}
 
 	fseek(misc, 160, SEEK_SET);
 	fgets(maintmp, 16, misc);
 	if (maintmp == NULL) {
-		printf("Error reading MAINVER from MISC...");
+		LOGE("Error reading MAINVER from MISC...\n");
 		return -1;
 	}
 	fclose(misc);
-	htc_info.mainver = malloc(sizeof(maintmp));
-	strncpy(htc_info.mainver, maintmp, sizeof(maintmp));
-	return 0;
+	htc_info_temp.mainver = malloc(sizeof(maintmp));
+	strncpy(htc_info_temp.mainver, maintmp, sizeof(maintmp));
+
+    // TODO: set these values in the property service!
+
+    return 0;
+
+}
+
+int htc_get_version_struct(struct htc_version_info *out) {
+    memcpy(out, &htc_info_temp, sizeof(htc_info_temp));
+    return 0;
 }
 
 //END IOMONSTER MAJOR MODS

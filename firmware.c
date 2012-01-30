@@ -29,48 +29,46 @@ static const char *update_data = NULL;
 static int update_length = 0;
 #else
 static int update_pending = 0;
+static htc_version_info htc_info;
 #endif
 
-/* new function: htc_make_firmware_zip() 
-	1. make android-info.txt
-	2. zip up /tmp/firmware/* to /sdcard/MODELID.zip
-*/
 #ifdef BOARD_RECOVERY_USES_HTC_FIRMWARE_ZIP
-int make_htc_firmware_zip() {
-	// blah blah blah
+int get_htc_info() {
+	memset(&htc_info, 0, sizeof(htc_info));
+	htc_get_version_struct(&htc_info);
+}
+
+int htc_make_firmware_zip() {
+	// Should call htc_write_android_info()
+	// Then make the .zip file and put in proper place
+	if (!htc_write_android_info()) {
+		LOGI("Got android-info.txt file, making .zip file...\n");
+		// make zip file!
+		return 0;
+	} else {
+		LOGE("Failed making android-info.txt file, not writing zip file");
+		return -1;
+	}
 }
 
 int htc_write_android_info() {
-	if ( !moo ) { // Check if our required data is all there...
+	//if ( !(htc_info.mid == NULL || htc_info.cid == NULL || htc_info.mainver == NULL) ) { // TODO: Check if our required data is all there...
 		FILE* androidinfo = fopen("/tmp/firmware/android-info.txt", "w");
 		if (androidinfo == NULL) {
-			printf("Error opening /tmp/firmware/android-info.txt for writing...");
+			LOGE("Error opening /tmp/firmware/android-info.txt for writing...");
 			return -1;
 		}
 		fprintf(androidinfo, "modelid: %s\ncidnum: %s\nmainver: %s\nhbootpreupdate:12\nDelCache:0", htc_info.mid, htc_info.cid, htc_info.mainver);
 		fclose(androidinfo);
 		return 0;
-	} else {
-		printf("Error creating android-info.txt, missing some data.");
-		return -1;
-	}
+	//} else {
+	//	LOGE("Error creating android-info.txt, missing some data.");
+	//	return -1;
+	//}
 }
 
 #endif
 
-// modify this to support new HTC bootloader...
-/* flow is:
-	1. check if update_pending = 1
-		if so, LOGE("Multiple firmware images... ignoring...");
-	2. check type:
-		if type = zip:
-			copy data to /sdcard/modelnum.zip
-			set update_pending = 1
-		if type = bootimg
-			copy file to /tmp/firmware/boot.img
-			set update_pending = 1
-	3. return properly
-*/
 int remember_firmware_update(const char *type, const char *data, int length) {
 #ifndef BOARD_RECOVERY_USES_HTC_FIRMWARE_ZIP
     if (update_type != NULL || update_data != NULL) {
@@ -83,29 +81,85 @@ int remember_firmware_update(const char *type, const char *data, int length) {
     update_length = length;
     return 0;
 #else
+/* flow is:
+	1. check if update_pending = 1
+		if so, LOGE("Multiple firmware images... ignoring...");
+	2. check type:
+		if type = zip:
+			copy data to /tmp/firmware/firmware.zip
+			set update_pending = 1
+		if type = bootimg
+			copy file to /tmp/firmware/boot.img
+			set update_pending = 1
+	3. return properly
+*/
+
+	if (update_pending == 1) {
+		LOGE("Multiple firmware images in queue. Denied!\n");
+		return -1
+	}
+
+	if (strcmp(type, "zip") == 0) {
+		LOGI("Got zip firmware image. Copying to /tmp/firmware/firmware.zip");
+		// TODO: copy "data" to /tmp/firmware/firmware.zip
+		update_pending = 1;
+	} else if (strcmp(type, "bootimg") == 0) {
+		LOGI("Got bootimg firmware image. Copying to /tmp/firmware/boot.img");
+		// TODO: copy "data" to /tmp/firmware/boot.img
+		update_pending = 1;
+	} else {
+		LOGE("Firmware type not supported, or missing type...\n");
+		return -1;
+	}
+
+	return 0;
 
 #endif
 }
+
+
+#ifdef BOARD_RECOVERY_USES_HTC_FIRMWARE_ZIP
+// Return true if there is a firmware update pending.
+int firmware_update_pending() {
+	// TODO: check logic here...
+	return update_pending;
+}
+
+int set_firmware_update_pending(int pending) {
+	update_pending = pending;
+}
+
+#else
 
 // Return true if there is a firmware update pending.
 int firmware_update_pending() {
-#ifndef BOARD_RECOVERY_USES_HTC_FIRMWARE_ZIP
   return update_data != NULL && update_length > 0;
-#else
-  return update_pending;
-#endif
 }
+#endif
 
-// modify this to support new HTC bootloader... 
-// here, the actual zip creation should happen, as well as the reboot to hboot (oem-42)
-/* flow like this:
-	1. if update-pending = 0, return 0
-	2. if update-pending = 1, and can't stat /tmp/firmware/android-info.txt, call htc_make_firmware_zip
-	2. reboot to hboot
-*/
 #ifdef BOARD_RECOVERY_USES_HTC_FIRMWARE_ZIP
+/* M_I_F_U should now:
+	1. if update-pending = 0, return 0
+	2. if update-pending = 1, get_htc_info
+	3. if /tmp/firmware.zip exists, copy to /sdcard/modelid.zip, else:
+	4. if can't stat /tmp/firmware/android-info.txt, call htc_make_firmware_zip
+	5. reboot to hboot (oem-42)
+*/
 int maybe_install_firmware_update(const char *send_intent) {
+	if (update_pending == 0) {
+		return 0;
+	}
+	// no need to worry about return values,
+	// if the underlying functions that get this failed
+	// the bootloader message check utilities would have ejected us already
+	get_htc_info();
 	
+	// if /tmp/firmware/firmware.zip doesn't exist
+	htc_make_firmware_zip();	
+
+	// we don't return, we just reboot!
+	// ...just kidding for now
+	return 0;
 }
 #else
 /* Bootloader / Recovery Flow

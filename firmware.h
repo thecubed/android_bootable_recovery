@@ -20,6 +20,7 @@
 #ifdef BOARD_RECOVERY_USES_HTC_FIRMWARE_ZIP
 int make_htc_firmware_zip();
 int htc_make_android_info();
+int set_firmware_update_pending(int pending);
 #endif
 
 /* Save a radio or bootloader update image for later installation.

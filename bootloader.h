@@ -48,9 +48,8 @@ struct htc_version_info {
 	char *mainver;
 };
 
-// These return zero on success
-int htc_get_cmdline_info();
-int htc_get_mainver();
+int htc_get_version_info(const Volume* v);
+int htc_get_version_struct(struct htc_version_info *out);
 #endif
 
 /* Read and write the bootloader command from the "misc" partition.
